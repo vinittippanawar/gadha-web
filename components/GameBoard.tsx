@@ -4,11 +4,13 @@ import { useMemo } from "react";
 import { legalMoves } from "@/lib/engine/engine";
 import { GameState } from "@/lib/engine/types";
 import { seatName } from "@/lib/seatName";
+import { TrickEvent } from "@/lib/trickEvent";
 import Seat from "./Seat";
 import HandRow from "./HandRow";
 import TableCenter from "./TableCenter";
 import StatusBar from "./StatusBar";
 import EndScreen from "./EndScreen";
+import TrickBanner from "./TrickBanner";
 
 // Hand-tuned positions around the top of the oval for every possible "other
 // seats" count (games range 2-8 players, so 1-7 seats besides your own).
@@ -69,6 +71,7 @@ interface Props {
   gameNo: number;
   scores: number[];
   busy: boolean;
+  lastTrick: TrickEvent | null;
   /** Online rooms only. */
   names?: string[];
   roomCode?: string;
@@ -87,6 +90,7 @@ export default function GameBoard({
   gameNo,
   scores,
   busy,
+  lastTrick,
   names,
   roomCode,
   seatStatus,
@@ -120,8 +124,16 @@ export default function GameBoard({
 
       {toolbar}
 
+      {/* Fixed-height slot: reserved whether or not a banner is currently
+          showing, so (a) the oval never shifts position when a cut happens
+          and the layout doesn't jump, and (b) there's always clearance for
+          seat badges, which sit above the oval's own top edge by design. */}
+      <div className="h-20 flex items-center justify-center">
+        <TrickBanner trick={lastTrick} mySeat={mySeat} names={names} />
+      </div>
+
       <div className="flex flex-col items-center gap-6 w-full max-w-3xl flex-1">
-        <div className="relative w-full aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
+        <div className="relative mt-10 w-full aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
           {otherSeats.map((seat, i) => (
             <Seat
               key={seat}

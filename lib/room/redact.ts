@@ -1,5 +1,6 @@
 import { Level } from "../engine/bots";
 import { GameState } from "../engine/types";
+import { TrickEvent } from "../trickEvent";
 import { Room, SeatInfo } from "./types";
 
 /**
@@ -52,6 +53,7 @@ export interface RoomView {
   gadhaSeries: number[];
   gamesPlayed: number;
   state: GameState | null;
+  lastTrick: TrickEvent | null;
 }
 
 /** The only thing ever sent over the wire to a given client. */
@@ -65,5 +67,6 @@ export function viewRoomFor(room: Room, viewerSeat: number): RoomView {
     gadhaSeries: room.gadhaSeries,
     gamesPlayed: room.gamesPlayed,
     state: room.state ? redactState(room.state, viewerSeat) : null,
+    lastTrick: room.lastTrick,
   };
 }

@@ -5,6 +5,7 @@ import { createGame, legalMoves, step } from "./engine/engine";
 import { chooseBotMove, Level } from "./engine/bots";
 import { makeRng, Rng } from "./engine/rng";
 import { GameState } from "./engine/types";
+import { TrickEvent, trickEventFrom } from "./trickEvent";
 
 export const YOU = 0;
 export const NUM_PLAYERS = 6;
@@ -28,6 +29,7 @@ export function useGadhaGame(level: Level) {
   const [scores, setScores] = useState<number[]>(() => Array(NUM_PLAYERS).fill(0));
   const [gameNo, setGameNo] = useState(1);
   const [botThinking, setBotThinking] = useState(false);
+  const [lastTrick, setLastTrick] = useState<TrickEvent | null>(null);
 
   // Runs once, client-side only, after the seed-0 tree has already been
   // hydrated -- this is what makes the real deal actually random per visit
@@ -41,7 +43,10 @@ export function useGadhaGame(level: Level) {
   }, []);
 
   const applyStep = useCallback((prev: GameState, card: number) => {
-    setState(step(prev, card, gameRng.current).state);
+    const { state: next, event } = step(prev, card, gameRng.current);
+    const trick = trickEventFrom(event);
+    if (trick) setLastTrick(trick);
+    setState(next);
   }, []);
 
   // Reads `state` from closure rather than a setState updater: applyStep has
@@ -92,6 +97,7 @@ export function useGadhaGame(level: Level) {
 
   const newGame = useCallback((carryGadha: number | null) => {
     scoredRef.current = false;
+    setLastTrick(null);
     setState(createGame({ carryGadha }, gameRng.current));
     setGameNo((g) => g + 1);
   }, []);
@@ -100,8 +106,9 @@ export function useGadhaGame(level: Level) {
     scoredRef.current = false;
     setScores(Array(NUM_PLAYERS).fill(0));
     setGameNo(1);
+    setLastTrick(null);
     setState(createGame({}, gameRng.current));
   }, []);
 
-  return { state, scores, gameNo, botThinking, playCard, newGame, restartSeries };
+  return { state, scores, gameNo, botThinking, lastTrick, playCard, newGame, restartSeries };
 }

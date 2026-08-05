@@ -41,7 +41,7 @@ const RING = {
   safe: "ring-2 ring-emerald-400",
   danger: "ring-2 ring-rose-400",
   picked: "ring-4 ring-amber-300",
-  cut: "ring-4 ring-sky-400",
+  cut: "ring-4 ring-red-500",
 };
 
 export default function PlayingCard({

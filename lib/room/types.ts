@@ -1,5 +1,6 @@
 import { Level } from "../engine/bots";
 import { GameState } from "../engine/types";
+import { TrickEvent } from "../trickEvent";
 
 export interface SeatInfo {
   kind: "human" | "bot" | "empty";
@@ -19,6 +20,10 @@ export interface Room {
   gadhaSeries: number[]; // times-been-gadha per seat, across games in this room
   carryGadha: number | null;
   gamesPlayed: number; // 1-based count of games started in this room so far
+  /** Most recent resolved phase-2 trick, for the cut/pickup UI banner. Never
+   *  needs redaction -- trick cards are played face up, public to everyone
+   *  the instant they're played. */
+  lastTrick: TrickEvent | null;
   createdAt: number;
   /** Bumped on every change. Lets clients cheaply tell "did anything change"
    *  without diffing the whole (possibly large) state. */

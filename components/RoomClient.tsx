@@ -139,6 +139,7 @@ export default function RoomClient({ code }: { code: string }) {
       gameNo={view.gamesPlayed}
       scores={view.gadhaSeries}
       busy={busy}
+      lastTrick={view.lastTrick}
       names={names}
       roomCode={view.code}
       seatStatus={seatStatus}

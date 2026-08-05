@@ -1,6 +1,7 @@
 import { createGame, legalMoves, step } from "../engine/engine";
 import { chooseBotMove, Level } from "../engine/bots";
 import { makeRng, Rng } from "../engine/rng";
+import { trickEventFrom } from "../trickEvent";
 import { getStore } from "./store";
 import { MAX_SEATS, MIN_SEATS, Room, ROOM_TTL_SECONDS, SeatInfo } from "./types";
 
@@ -60,7 +61,10 @@ async function resolveBotTurns(room: Room, gameRng: Rng, cap = 30): Promise<void
     const seat = room.state.turn;
     const botRng = makeRng();
     const { card } = chooseBotMove(room.state, seat, room.seats[seat].botLevel, botRng);
-    room.state = step(room.state, card, gameRng).state;
+    const result = step(room.state, card, gameRng);
+    room.state = result.state;
+    const trick = trickEventFrom(result.event);
+    if (trick) room.lastTrick = trick;
     steps++;
   }
 }
@@ -103,6 +107,7 @@ export async function createRoom(
     gadhaSeries: Array(seatCount).fill(0),
     carryGadha: null,
     gamesPlayed: 0,
+    lastTrick: null,
     createdAt: Date.now(),
     version: 1,
   };
@@ -179,6 +184,7 @@ export async function startRoom(code: string, token: string): Promise<RoomResult
   room.state = createGame({ nplayers: room.seats.length, carryGadha: room.carryGadha }, rng);
   room.status = "playing";
   room.gamesPlayed += 1;
+  room.lastTrick = null;
   await resolveBotTurns(room, rng);
   recordGadhaIfFinished(room);
   await saveRoom(room);
@@ -197,7 +203,10 @@ export async function playCard(code: string, token: string, card: number): Promi
 
   room.seats[seat].lastSeen = Date.now();
   const rng = makeRng();
-  room.state = step(room.state, card, rng).state;
+  const result = step(room.state, card, rng);
+  room.state = result.state;
+  const trick = trickEventFrom(result.event);
+  if (trick) room.lastTrick = trick;
   await resolveBotTurns(room, rng);
   recordGadhaIfFinished(room);
   await saveRoom(room);
@@ -213,6 +222,7 @@ export async function nextGame(code: string, token: string): Promise<RoomResult>
   const rng = makeRng();
   room.state = createGame({ nplayers: room.seats.length, carryGadha: room.carryGadha }, rng);
   room.gamesPlayed += 1;
+  room.lastTrick = null;
   await resolveBotTurns(room, rng);
   recordGadhaIfFinished(room);
   await saveRoom(room);
