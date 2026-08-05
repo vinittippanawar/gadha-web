@@ -91,10 +91,14 @@ export function useOnlineGadha(code: string, token: string | null) {
   );
   const startGame = useCallback(() => runAction(`/api/room/${code}/start`, {}), [runAction, code]);
   const nextGame = useCallback(() => runAction(`/api/room/${code}/next`, {}), [runAction, code]);
-  const setBotLevel = useCallback(
-    (seat: number, level: Level) => runAction(`/api/room/${code}/bot-level`, { seat, level }),
+  const setSeatBot = useCallback(
+    (seat: number, level: Level) => runAction(`/api/room/${code}/set-bot`, { seat, level }),
+    [runAction, code]
+  );
+  const clearSeat = useCallback(
+    (seat: number) => runAction(`/api/room/${code}/clear-seat`, { seat }),
     [runAction, code]
   );
 
-  return { view, error, busy, playCard, startGame, nextGame, setBotLevel };
+  return { view, error, busy, playCard, startGame, nextGame, setSeatBot, clearSeat };
 }

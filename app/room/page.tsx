@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MAX_SEATS, MIN_SEATS, DEFAULT_SEATS } from "@/lib/room/types";
+
+const SEAT_CHOICES = Array.from(
+  { length: MAX_SEATS - MIN_SEATS + 1 },
+  (_, i) => MIN_SEATS + i
+);
 
 export default function RoomLanding() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [seatCount, setSeatCount] = useState(DEFAULT_SEATS);
   const [joinCode, setJoinCode] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +24,7 @@ export default function RoomLanding() {
       const res = await fetch("/api/room/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), seatCount }),
       });
       const data = await res.json();
       if (data.error) {
@@ -53,6 +60,29 @@ export default function RoomLanding() {
           maxLength={24}
           className="px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-zinc-100 text-sm text-center"
         />
+
+        <div className="flex flex-col gap-1.5 items-center">
+          <span className="text-xs text-zinc-400">Players</span>
+          <div className="flex gap-1 flex-wrap justify-center">
+            {SEAT_CHOICES.map((n) => (
+              <button
+                key={n}
+                onClick={() => setSeatCount(n)}
+                className={`w-9 h-9 rounded-lg text-sm font-semibold ${
+                  seatCount === n
+                    ? "bg-amber-400 text-amber-950"
+                    : "bg-white/10 text-zinc-300 hover:bg-white/20"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-zinc-500">
+            empty seats stay open for friends to join, or add bots yourself in the lobby
+          </span>
+        </div>
+
         <button
           onClick={handleCreate}
           disabled={creating}

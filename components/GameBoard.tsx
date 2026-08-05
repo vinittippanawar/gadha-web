@@ -10,16 +10,53 @@ import TableCenter from "./TableCenter";
 import StatusBar from "./StatusBar";
 import EndScreen from "./EndScreen";
 
-// Five fixed positions around the oval, filled in turn order starting from
-// whoever is one seat after "you" -- so the player to your left always
-// renders at the first slot, matching how you'd sit at a real table.
-const SEAT_POS = [
-  { left: "10%", top: "28%" },
-  { left: "28%", top: "8%" },
-  { left: "50%", top: "2%" },
-  { left: "72%", top: "8%" },
-  { left: "90%", top: "28%" },
-];
+// Hand-tuned positions around the top of the oval for every possible "other
+// seats" count (games range 2-8 players, so 1-7 seats besides your own).
+// Filled in turn order starting from whoever is one seat after "you" -- so
+// the player to your left always renders at the first slot, matching how
+// you'd sit at a real table.
+const SEAT_POS_BY_COUNT: Record<number, { left: string; top: string }[]> = {
+  1: [{ left: "50%", top: "2%" }],
+  2: [
+    { left: "18%", top: "22%" },
+    { left: "82%", top: "22%" },
+  ],
+  3: [
+    { left: "12%", top: "26%" },
+    { left: "50%", top: "0%" },
+    { left: "88%", top: "26%" },
+  ],
+  4: [
+    { left: "10%", top: "28%" },
+    { left: "36%", top: "4%" },
+    { left: "64%", top: "4%" },
+    { left: "90%", top: "28%" },
+  ],
+  5: [
+    { left: "10%", top: "28%" },
+    { left: "28%", top: "8%" },
+    { left: "50%", top: "2%" },
+    { left: "72%", top: "8%" },
+    { left: "90%", top: "28%" },
+  ],
+  6: [
+    { left: "6%", top: "30%" },
+    { left: "20%", top: "10%" },
+    { left: "38%", top: "0%" },
+    { left: "62%", top: "0%" },
+    { left: "80%", top: "10%" },
+    { left: "94%", top: "30%" },
+  ],
+  7: [
+    { left: "4%", top: "32%" },
+    { left: "16%", top: "12%" },
+    { left: "32%", top: "1%" },
+    { left: "50%", top: "0%" },
+    { left: "68%", top: "1%" },
+    { left: "84%", top: "12%" },
+    { left: "96%", top: "32%" },
+  ],
+};
 
 export interface SeatStatus {
   connection?: "empty" | "disconnected";
@@ -64,9 +101,10 @@ export default function GameBoard({
 
   const otherSeats = useMemo(() => {
     const rest = [];
-    for (let k = 1; k <= 5; k++) rest.push((mySeat + k) % 6);
+    for (let k = 1; k < state.n; k++) rest.push((mySeat + k) % state.n);
     return rest;
-  }, [mySeat]);
+  }, [mySeat, state.n]);
+  const seatPositions = SEAT_POS_BY_COUNT[otherSeats.length] ?? SEAT_POS_BY_COUNT[5];
 
   return (
     <div className="flex flex-col items-center gap-4 w-full min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 py-4 px-2">
@@ -95,7 +133,7 @@ export default function GameBoard({
               isLeader={state.phase === 2 && state.leader === seat}
               thinking={busy && state.turn === seat}
               connection={seatStatus?.[seat]?.connection}
-              style={{ left: SEAT_POS[i].left, top: SEAT_POS[i].top }}
+              style={{ left: seatPositions[i].left, top: seatPositions[i].top }}
             />
           ))}
           <TableCenter state={state} mySeat={mySeat} names={names} />

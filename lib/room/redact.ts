@@ -1,3 +1,4 @@
+import { Level } from "../engine/bots";
 import { GameState } from "../engine/types";
 import { Room, SeatInfo } from "./types";
 
@@ -30,13 +31,15 @@ export interface PublicSeatInfo {
   kind: "human" | "bot" | "empty";
   name: string;
   connected: boolean;
+  botLevel: Level;
 }
 
 function publicSeat(seat: SeatInfo): PublicSeatInfo {
   return {
-    kind: seat.token === null && seat.kind === "human" ? "empty" : seat.kind,
+    kind: seat.kind,
     name: seat.name,
-    connected: seat.kind === "bot" || Date.now() - seat.lastSeen < 30_000,
+    connected: seat.kind !== "human" || Date.now() - seat.lastSeen < 30_000,
+    botLevel: seat.botLevel,
   };
 }
 

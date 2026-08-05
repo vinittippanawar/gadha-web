@@ -2,7 +2,7 @@ import { createGame, legalMoves, step } from "../engine/engine";
 import { chooseBotMove, Level } from "../engine/bots";
 import { makeRng, Rng } from "../engine/rng";
 import { getStore } from "./store";
-import { Room, ROOM_TTL_SECONDS, SEAT_COUNT, SeatInfo } from "./types";
+import { MAX_SEATS, MIN_SEATS, Room, ROOM_TTL_SECONDS, SeatInfo } from "./types";
 
 // Excludes 0/O/1/I so codes are easy to read aloud and type back in.
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -73,17 +73,24 @@ function recordGadhaIfFinished(room: Room): void {
 }
 
 export async function createRoom(
-  hostName: string
-): Promise<{ room: Room; token: string; seat: number }> {
+  hostName: string,
+  seatCount: number
+): Promise<{ room: Room; token: string; seat: number } | { error: string }> {
+  if (!Number.isInteger(seatCount) || seatCount < MIN_SEATS || seatCount > MAX_SEATS) {
+    return { error: `players must be between ${MIN_SEATS} and ${MAX_SEATS}` };
+  }
+
   const store = getStore();
   let code = randomString(5);
   for (let i = 0; i < 5 && (await store.get(roomKey(code))); i++) code = randomString(5);
 
   const token = randomString(24);
-  const seats: SeatInfo[] = Array.from({ length: SEAT_COUNT }, (_, i) => ({
-    kind: i === 0 ? "human" : "bot",
+  // Every non-host seat starts EMPTY, not a bot -- bots here are opt-in,
+  // added by the host explicitly (see setSeatBot below), not a default.
+  const seats: SeatInfo[] = Array.from({ length: seatCount }, (_, i) => ({
+    kind: i === 0 ? "human" : "empty",
     token: i === 0 ? token : null,
-    name: i === 0 ? hostName || "Player 1" : `Bot ${i}`,
+    name: i === 0 ? hostName || "Player 1" : `Seat ${i + 1}`,
     botLevel: "medium",
     lastSeen: Date.now(),
   }));
@@ -93,7 +100,7 @@ export async function createRoom(
     status: "lobby",
     seats,
     state: null,
-    gadhaSeries: Array(SEAT_COUNT).fill(0),
+    gadhaSeries: Array(seatCount).fill(0),
     carryGadha: null,
     gamesPlayed: 0,
     createdAt: Date.now(),
@@ -110,7 +117,7 @@ export async function joinRoom(
   const room = await getRoom(code);
   if (!room) return { error: "room not found" };
   if (room.status !== "lobby") return { error: "game already started" };
-  const seatIdx = room.seats.findIndex((s) => s.kind === "bot");
+  const seatIdx = room.seats.findIndex((s) => s.kind === "empty");
   if (seatIdx === -1) return { error: "room is full" };
 
   const token = randomString(24);
@@ -125,7 +132,9 @@ export async function joinRoom(
   return { room, token, seat: seatIdx };
 }
 
-export async function setBotLevel(
+/** Host fills an empty seat with a bot, or changes an existing bot's level.
+ *  Never touches a seat a human is sitting in. */
+export async function setSeatBot(
   code: string,
   hostToken: string,
   seat: number,
@@ -135,8 +144,24 @@ export async function setBotLevel(
   if (!room) return { error: "room not found" };
   if (room.status !== "lobby") return { error: "game already started" };
   if (findSeatByToken(room, hostToken) !== 0) return { error: "only the host can do that" };
-  if (room.seats[seat]?.kind !== "bot") return { error: "that seat is not a bot" };
-  room.seats[seat].botLevel = level;
+  const target = room.seats[seat];
+  if (!target) return { error: "no such seat" };
+  if (target.kind === "human") return { error: "a player is already sitting there" };
+  room.seats[seat] = { kind: "bot", token: null, name: `Bot ${seat + 1}`, botLevel: level, lastSeen: Date.now() };
+  await saveRoom(room);
+  return room;
+}
+
+/** Host reverts a bot seat back to empty, opening it up for a human to join. */
+export async function clearSeat(code: string, hostToken: string, seat: number): Promise<RoomResult> {
+  const room = await getRoom(code);
+  if (!room) return { error: "room not found" };
+  if (room.status !== "lobby") return { error: "game already started" };
+  if (findSeatByToken(room, hostToken) !== 0) return { error: "only the host can do that" };
+  const target = room.seats[seat];
+  if (!target) return { error: "no such seat" };
+  if (target.kind !== "bot") return { error: "that seat isn't a bot" };
+  room.seats[seat] = { kind: "empty", token: null, name: `Seat ${seat + 1}`, botLevel: "medium", lastSeen: Date.now() };
   await saveRoom(room);
   return room;
 }
@@ -146,9 +171,12 @@ export async function startRoom(code: string, token: string): Promise<RoomResult
   if (!room) return { error: "room not found" };
   if (room.status !== "lobby") return { error: "already started" };
   if (findSeatByToken(room, token) !== 0) return { error: "only the host can start the game" };
+  if (room.seats.some((s) => s.kind === "empty")) {
+    return { error: "every seat needs a player or a bot before starting" };
+  }
 
   const rng = makeRng();
-  room.state = createGame({ carryGadha: room.carryGadha }, rng);
+  room.state = createGame({ nplayers: room.seats.length, carryGadha: room.carryGadha }, rng);
   room.status = "playing";
   room.gamesPlayed += 1;
   await resolveBotTurns(room, rng);
@@ -183,7 +211,7 @@ export async function nextGame(code: string, token: string): Promise<RoomResult>
   if (!room.state?.finished) return { error: "the current game isn't finished yet" };
 
   const rng = makeRng();
-  room.state = createGame({ carryGadha: room.carryGadha }, rng);
+  room.state = createGame({ nplayers: room.seats.length, carryGadha: room.carryGadha }, rng);
   room.gamesPlayed += 1;
   await resolveBotTurns(room, rng);
   recordGadhaIfFinished(room);

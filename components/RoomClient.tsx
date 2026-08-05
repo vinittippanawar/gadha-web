@@ -37,7 +37,7 @@ export default function RoomClient({ code }: { code: string }) {
     setCheckedStorage(true);
   }, [code]);
 
-  const { view, error, busy, playCard, startGame, nextGame, setBotLevel } = useOnlineGadha(
+  const { view, error, busy, playCard, startGame, nextGame, setSeatBot, clearSeat } = useOnlineGadha(
     code,
     token
   );
@@ -114,8 +114,10 @@ export default function RoomClient({ code }: { code: string }) {
         code={code}
         view={view}
         onStart={startGame}
-        onSetBotLevel={setBotLevel}
+        onSetSeatBot={setSeatBot}
+        onClearSeat={clearSeat}
         busy={busy}
+        startError={error}
       />
     );
   }
@@ -193,22 +195,29 @@ function JoinScreen({
   );
 }
 
+const ADD_BOT_PLACEHOLDER = "__add__";
+
 function LobbyScreen({
   code,
   view,
   onStart,
-  onSetBotLevel,
+  onSetSeatBot,
+  onClearSeat,
   busy,
+  startError,
 }: {
   code: string;
   view: NonNullable<ReturnType<typeof useOnlineGadha>["view"]>;
   onStart: () => void;
-  onSetBotLevel: (seat: number, level: Level) => void;
+  onSetSeatBot: (seat: number, level: Level) => void;
+  onClearSeat: (seat: number) => void;
   busy: boolean;
+  startError: string | null;
 }) {
   const isHost = view.mySeat === 0;
   const [copied, setCopied] = useState(false);
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/room/${code}` : "";
+  const emptyCount = view.seats.filter((s) => s.kind === "empty").length;
 
   return (
     <Centered>
@@ -225,25 +234,65 @@ function LobbyScreen({
         {copied ? "link copied!" : "copy invite link"}
       </button>
 
-      <div className="mt-6 flex flex-col gap-2 w-72">
+      <div className="mt-6 flex flex-col gap-2 w-80">
         {view.seats.map((s, i) => (
           <div
             key={i}
             className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
-              i === view.mySeat ? "bg-sky-500/20 border border-sky-400/40" : "bg-white/5 border border-white/10"
+              i === view.mySeat
+                ? "bg-sky-500/20 border border-sky-400/40"
+                : s.kind === "empty"
+                  ? "bg-white/5 border border-dashed border-zinc-600"
+                  : "bg-white/5 border border-white/10"
             }`}
           >
-            <span className="text-zinc-200">
+            <span className={s.kind === "empty" ? "text-zinc-500" : "text-zinc-200"}>
               {i === view.mySeat ? "You" : s.name}
               {i === 0 && <span className="text-zinc-500 text-xs"> (host)</span>}
             </span>
-            {s.kind === "bot" ? (
-              isHost ? (
+
+            {s.kind === "human" && i !== view.mySeat && (
+              <span className="text-emerald-400 text-xs">joined</span>
+            )}
+
+            {s.kind === "bot" &&
+              (isHost ? (
+                <div className="flex items-center gap-1">
+                  <select
+                    value={s.botLevel}
+                    onChange={(e) => onSetSeatBot(i, e.target.value as Level)}
+                    className="bg-zinc-800 text-zinc-200 text-xs rounded px-1 py-0.5"
+                  >
+                    {Object.keys(LEVELS).map((lv) => (
+                      <option key={lv} value={lv}>
+                        {lv}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => onClearSeat(i)}
+                    title="Remove bot, open seat for a friend"
+                    className="text-zinc-500 hover:text-rose-400 text-xs px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <span className="text-zinc-500 text-xs">bot</span>
+              ))}
+
+            {s.kind === "empty" &&
+              (isHost ? (
                 <select
-                  defaultValue="medium"
-                  onChange={(e) => onSetBotLevel(i, e.target.value as Level)}
-                  className="bg-zinc-800 text-zinc-200 text-xs rounded px-1 py-0.5"
+                  value={ADD_BOT_PLACEHOLDER}
+                  onChange={(e) => {
+                    if (e.target.value !== ADD_BOT_PLACEHOLDER) onSetSeatBot(i, e.target.value as Level);
+                  }}
+                  className="bg-zinc-800 text-zinc-400 text-xs rounded px-1 py-0.5"
                 >
+                  <option value={ADD_BOT_PLACEHOLDER} disabled>
+                    add a bot...
+                  </option>
                   {Object.keys(LEVELS).map((lv) => (
                     <option key={lv} value={lv}>
                       {lv}
@@ -251,29 +300,37 @@ function LobbyScreen({
                   ))}
                 </select>
               ) : (
-                <span className="text-zinc-500 text-xs">bot</span>
-              )
-            ) : (
-              <span className="text-emerald-400 text-xs">joined</span>
-            )}
+                <span className="text-zinc-600 text-xs">waiting for player</span>
+              ))}
           </div>
         ))}
       </div>
 
       {isHost ? (
-        <button
-          onClick={onStart}
-          disabled={busy}
-          className="mt-6 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-emerald-950 font-bold"
-        >
-          Start game
-        </button>
+        <>
+          <button
+            onClick={onStart}
+            disabled={busy || emptyCount > 0}
+            className="mt-6 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-emerald-950 font-bold"
+          >
+            Start game
+          </button>
+          {emptyCount > 0 && (
+            <p className="text-amber-300/80 text-xs mt-2">
+              {emptyCount} seat{emptyCount > 1 ? "s" : ""} still empty -- add a bot or wait for a friend
+              to join before starting.
+            </p>
+          )}
+          {startError && startError !== "not a player in this room" && (
+            <p className="text-rose-400 text-xs mt-2">{startError}</p>
+          )}
+        </>
       ) : (
         <p className="mt-6 text-zinc-400 text-sm">Waiting for the host to start the game...</p>
       )}
       <p className="text-zinc-500 text-xs mt-4 max-w-xs">
-        Open bot seats will be filled with bots at the chosen difficulty. Share the link above to
-        let friends claim them instead.
+        Bots are opt-in: seats stay open for friends until you add a bot yourself. Share the link
+        above to invite people to the open seats.
       </p>
     </Centered>
   );
