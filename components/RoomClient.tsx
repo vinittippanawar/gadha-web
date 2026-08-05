@@ -136,7 +136,6 @@ export default function RoomClient({ code }: { code: string }) {
       onPlay={playCard}
       gameNo={view.gamesPlayed}
       scores={view.gadhaSeries}
-      log={[]}
       busy={busy}
       names={names}
       roomCode={view.code}

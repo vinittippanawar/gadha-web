@@ -9,7 +9,7 @@ const LEVELS: Level[] = ["easy", "medium", "hard", "brutal"];
 
 export default function GadhaApp() {
   const [level, setLevel] = useState<Level>("medium");
-  const { state, log, scores, gameNo, botThinking, playCard, newGame, restartSeries } = useGadhaGame(level);
+  const { state, scores, gameNo, botThinking, playCard, newGame, restartSeries } = useGadhaGame(level);
 
   return (
     <GameBoard
@@ -18,7 +18,6 @@ export default function GadhaApp() {
       onPlay={playCard}
       gameNo={gameNo}
       scores={scores}
-      log={log}
       busy={botThinking}
       onNextGame={() => newGame(state.gadha)}
       onRestartSeries={restartSeries}

@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { costs, legalMoves } from "@/lib/engine/engine";
+import { legalMoves } from "@/lib/engine/engine";
 import { GameState } from "@/lib/engine/types";
-import { LogEntry } from "@/lib/useGadhaGame";
 import { seatName } from "@/lib/seatName";
 import Seat from "./Seat";
 import HandRow from "./HandRow";
@@ -32,7 +31,6 @@ interface Props {
   onPlay: (card: number) => void;
   gameNo: number;
   scores: number[];
-  log: LogEntry[];
   busy: boolean;
   /** Online rooms only. */
   names?: string[];
@@ -51,7 +49,6 @@ export default function GameBoard({
   onPlay,
   gameNo,
   scores,
-  log,
   busy,
   names,
   roomCode,
@@ -63,7 +60,6 @@ export default function GameBoard({
 }: Props) {
   const myHand = state.hands[mySeat];
   const myLegal = useMemo(() => legalMoves(state, mySeat), [state, mySeat]);
-  const myCosts = useMemo(() => costs(state, mySeat), [state, mySeat]);
   const isMyTurn = state.turn === mySeat && !state.finished;
 
   const otherSeats = useMemo(() => {
@@ -86,55 +82,31 @@ export default function GameBoard({
 
       {toolbar}
 
-      <div className="flex gap-4 w-full max-w-6xl flex-1">
-        <div className="flex-1 flex flex-col items-center gap-6">
-          <div className="relative w-full max-w-3xl aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
-            {otherSeats.map((seat, i) => (
-              <Seat
-                key={seat}
-                label={seatName(seat, mySeat, names)}
-                handCount={state.hands[seat].length}
-                hand={state.hands[seat]}
-                alive={state.alive[seat]}
-                isTurn={state.turn === seat}
-                isLeader={state.phase === 2 && state.leader === seat}
-                thinking={busy && state.turn === seat}
-                connection={seatStatus?.[seat]?.connection}
-                style={{ left: SEAT_POS[i].left, top: SEAT_POS[i].top }}
-              />
-            ))}
-            <TableCenter state={state} mySeat={mySeat} names={names} />
-          </div>
-
-          <div className="w-full flex flex-col items-center gap-2 bg-white/5 rounded-2xl p-4 border border-white/10">
-            <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
-              YOUR HAND
-              {state.phase === 2 && state.leader === mySeat && <span title="You lead this trick">🎯 you lead</span>}
-            </div>
-            <HandRow state={state} hand={myHand} legal={myLegal} costMap={myCosts} onPlay={onPlay} isMyTurn={isMyTurn} />
-          </div>
+      <div className="flex flex-col items-center gap-6 w-full max-w-3xl flex-1">
+        <div className="relative w-full aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
+          {otherSeats.map((seat, i) => (
+            <Seat
+              key={seat}
+              label={seatName(seat, mySeat, names)}
+              handCount={state.hands[seat].length}
+              hand={state.hands[seat]}
+              alive={state.alive[seat]}
+              isTurn={state.turn === seat}
+              isLeader={state.phase === 2 && state.leader === seat}
+              thinking={busy && state.turn === seat}
+              connection={seatStatus?.[seat]?.connection}
+              style={{ left: SEAT_POS[i].left, top: SEAT_POS[i].top }}
+            />
+          ))}
+          <TableCenter state={state} mySeat={mySeat} names={names} />
         </div>
 
-        <div className="hidden lg:flex flex-col w-72 bg-white/5 border border-white/10 rounded-2xl p-3 gap-1 h-[36rem] overflow-y-auto text-xs">
-          <div className="font-semibold text-zinc-300 mb-1 sticky top-0">Log</div>
-          {log.map((entry) => (
-            <div
-              key={entry.id}
-              className={
-                entry.kind === "pickup"
-                  ? "text-rose-300"
-                  : entry.kind === "cut"
-                    ? "text-sky-300"
-                    : entry.kind === "safe"
-                      ? "text-emerald-300"
-                      : entry.kind === "gadha"
-                        ? "text-amber-300 font-semibold"
-                        : "text-zinc-400"
-              }
-            >
-              {entry.text}
-            </div>
-          ))}
+        <div className="w-full flex flex-col items-center gap-2 bg-white/5 rounded-2xl p-4 border border-white/10">
+          <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
+            YOUR HAND
+            {state.phase === 2 && state.leader === mySeat && <span title="You lead this trick">🎯 you lead</span>}
+          </div>
+          <HandRow state={state} hand={myHand} legal={myLegal} onPlay={onPlay} isMyTurn={isMyTurn} />
         </div>
       </div>
 

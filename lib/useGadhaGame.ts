@@ -1,93 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cardName } from "./engine/cards";
 import { createGame, legalMoves, step } from "./engine/engine";
 import { chooseBotMove, Level } from "./engine/bots";
 import { makeRng, Rng } from "./engine/rng";
-import { GameState, StepEvent } from "./engine/types";
+import { GameState } from "./engine/types";
 
 export const YOU = 0;
 export const NUM_PLAYERS = 6;
-
-export interface LogEntry {
-  id: number;
-  text: string;
-  kind: "info" | "pickup" | "cut" | "safe" | "gadha";
-}
-
-function seatName(p: number): string {
-  return p === YOU ? "You" : `Bot ${p}`;
-}
-
-function describeEvent(event: StepEvent, nextState: GameState): LogEntry[] {
-  const entries: LogEntry[] = [];
-  const id = Date.now() + Math.random();
-  if (event.kind === "timeout") {
-    entries.push({ id, text: "Turn cap reached - largest hand loses.", kind: "info" });
-    return entries;
-  }
-  if (event.kind === "phase1") {
-    if (event.picked) {
-      entries.push({
-        id,
-        text: `${seatName(event.player)} plays ${cardName(event.card)} -> catches ${event.caught
-          .map(cardName)
-          .join(" ")} (+own) = ${event.picked} cards`,
-        kind: "pickup",
-      });
-    } else {
-      entries.push({ id, text: `${seatName(event.player)} plays ${cardName(event.card)} - safe`, kind: "info" });
-    }
-    if (event.phaseEnd) {
-      entries.push({
-        id: id + 0.1,
-        text:
-          nextState.leftoverTo !== null
-            ? `Leftover ${nextState.leftoverCount} cards -> ${seatName(nextState.leftoverTo)} (last game's gadha)`
-            : nextState.leftoverCount
-              ? `Leftover ${nextState.leftoverCount} cards split equally`
-              : "Table cleared exactly - no leftovers",
-        kind: "info",
-      });
-    }
-  } else {
-    entries.push({
-      id,
-      text: `${seatName(event.player)} plays ${cardName(event.card)}${event.cut ? "  CUT!" : ""}`,
-      kind: event.cut ? "cut" : "info",
-    });
-    if (event.resolved) {
-      const r = event.resolved;
-      entries.push({
-        id: id + 0.1,
-        text: r.pickup
-          ? `${cardName(r.topCard)} was highest -> ${seatName(r.taker!)} picks up ${r.cards.length} cards`
-          : `All followed, ${cardName(r.topCard)} wins -> discarded for good`,
-        kind: r.pickup ? "pickup" : "info",
-      });
-      r.exited.forEach((p) => entries.push({ id: id + 0.2 + p, text: `${seatName(p)} is out - safe!`, kind: "safe" }));
-      if (r.reshuffled) {
-        entries.push({
-          id: id + 0.3,
-          text: "Cycle detected - deck reshuffled, everyone still in gets a fresh 5-card hand",
-          kind: "info",
-        });
-      }
-    }
-  }
-  if (nextState.finished) {
-    entries.push({
-      id: id + 0.5,
-      text:
-        nextState.gadha === null
-          ? "Nobody is left holding cards - no Gadha this round."
-          : `${seatName(nextState.gadha)} is the GADHA.`,
-      kind: "gadha",
-    });
-  }
-  return entries;
-}
 
 export function useGadhaGame(level: Level) {
   // Next.js server-renders this client component for the first paint. If the
@@ -105,10 +25,8 @@ export function useGadhaGame(level: Level) {
   const scoredRef = useRef(false);
 
   const [state, setState] = useState<GameState>(() => createGame({}, gameRng.current));
-  const [lastEvent, setLastEvent] = useState<StepEvent | null>(null);
   const [scores, setScores] = useState<number[]>(() => Array(NUM_PLAYERS).fill(0));
   const [gameNo, setGameNo] = useState(1);
-  const [log, setLog] = useState<LogEntry[]>([]);
   const [botThinking, setBotThinking] = useState(false);
 
   // Runs once, client-side only, after the seed-0 tree has already been
@@ -123,16 +41,13 @@ export function useGadhaGame(level: Level) {
   }, []);
 
   const applyStep = useCallback((prev: GameState, card: number) => {
-    const { state: next, event } = step(prev, card, gameRng.current);
-    setLastEvent(event);
-    setLog((l) => [...describeEvent(event, next), ...l].slice(0, 60));
-    setState(next);
+    setState(step(prev, card, gameRng.current).state);
   }, []);
 
   // Reads `state` from closure rather than a setState updater: applyStep has
-  // side effects (setLog, setLastEvent), and an updater function can be
-  // invoked more than once (React Strict Mode does this deliberately), which
-  // would duplicate log entries and re-run step() for the same move.
+  // a side effect (setState from within a callback invoked by an effect),
+  // and an updater function can be invoked more than once (React Strict Mode
+  // does this deliberately), which would re-run step() for the same move.
   const playCard = useCallback(
     (card: number) => {
       if (state.finished || state.turn !== YOU) return;
@@ -177,9 +92,7 @@ export function useGadhaGame(level: Level) {
 
   const newGame = useCallback((carryGadha: number | null) => {
     scoredRef.current = false;
-    const fresh = createGame({ carryGadha }, gameRng.current);
-    setState(fresh);
-    setLastEvent(null);
+    setState(createGame({ carryGadha }, gameRng.current));
     setGameNo((g) => g + 1);
   }, []);
 
@@ -187,11 +100,8 @@ export function useGadhaGame(level: Level) {
     scoredRef.current = false;
     setScores(Array(NUM_PLAYERS).fill(0));
     setGameNo(1);
-    setLog([]);
-    const fresh = createGame({}, gameRng.current);
-    setState(fresh);
-    setLastEvent(null);
+    setState(createGame({}, gameRng.current));
   }, []);
 
-  return { state, lastEvent, log, scores, gameNo, botThinking, playCard, newGame, restartSeries };
+  return { state, scores, gameNo, botThinking, playCard, newGame, restartSeries };
 }
