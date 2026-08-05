@@ -21,9 +21,9 @@ export default function StatusBar({ state, mySeat, names, gameNo, scores, botThi
         ? "Your turn"
         : `${seatName(state.turn, mySeat, names)}${botThinking ? " thinking..." : ""}`;
 
-  return (
-    <div className="w-full max-w-4xl flex items-center justify-between px-4 py-2 text-sm text-zinc-200">
-      <div className="flex items-center gap-3">
+return (
+    <div className="w-full max-w-4xl flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-sm text-zinc-200">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="font-bold text-amber-300">🫏 GADHA</span>
         {roomCode && (
           <span className="rounded-full bg-indigo-500/30 px-2 py-0.5 text-xs font-mono font-semibold">
@@ -36,7 +36,7 @@ export default function StatusBar({ state, mySeat, names, gameNo, scores, botThi
         </span>
       </div>
       <div className="font-medium">{turnLabel}</div>
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center gap-2 text-xs flex-wrap">
         <span className="opacity-70">gadha count:</span>
         {scores.map((s, i) => (
           <span key={i} className={`px-1.5 py-0.5 rounded ${i === mySeat ? "bg-sky-500/30" : "bg-white/10"}`}>

@@ -11,6 +11,7 @@ import TableCenter from "./TableCenter";
 import StatusBar from "./StatusBar";
 import EndScreen from "./EndScreen";
 import TrickBanner from "./TrickBanner";
+import ScaleToFit from "./ScaleToFit";
 
 // Hand-tuned positions around the top of the oval for every possible "other
 // seats" count (games range 2-8 players, so 1-7 seats besides your own).
@@ -110,7 +111,7 @@ export default function GameBoard({
   }, [mySeat, state.n]);
   const seatPositions = SEAT_POS_BY_COUNT[otherSeats.length] ?? SEAT_POS_BY_COUNT[5];
 
-  return (
+return (
     <div className="flex flex-col items-center gap-4 w-full min-h-screen bg-gradient-to-b from-zinc-950 to-zinc-900 py-4 px-2">
       <StatusBar
         state={state}
@@ -132,33 +133,37 @@ export default function GameBoard({
         <TrickBanner trick={lastTrick} mySeat={mySeat} names={names} />
       </div>
 
-      <div className="flex flex-col items-center gap-6 w-full max-w-3xl flex-1">
-        <div className="relative mt-10 w-full aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
-          {otherSeats.map((seat, i) => (
-            <Seat
-              key={seat}
-              label={seatName(seat, mySeat, names)}
-              handCount={state.hands[seat].length}
-              hand={state.hands[seat]}
-              alive={state.alive[seat]}
-              isTurn={state.turn === seat}
-              isLeader={state.phase === 2 && state.leader === seat}
-              thinking={busy && state.turn === seat}
-              connection={seatStatus?.[seat]?.connection}
-              style={{ left: seatPositions[i].left, top: seatPositions[i].top }}
-            />
-          ))}
-          <TableCenter state={state} mySeat={mySeat} names={names} />
-        </div>
-
-        <div className="w-full flex flex-col items-center gap-2 bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
-            YOUR HAND
-            {state.phase === 2 && state.leader === mySeat && <span title="You lead this trick">🎯 you lead</span>}
+      {/* Scale the whole board to fit narrow screens (phones) while keeping
+          the tuned desktop layout intact. */}
+      <ScaleToFit>
+        <div className="flex flex-col items-center gap-6 w-full max-w-3xl flex-1">
+          <div className="relative mt-10 w-full aspect-[16/8] rounded-[50%] bg-emerald-800/60 border-4 border-emerald-950 shadow-2xl flex items-center justify-center">
+            {otherSeats.map((seat, i) => (
+              <Seat
+                key={seat}
+                label={seatName(seat, mySeat, names)}
+                handCount={state.hands[seat].length}
+                hand={state.hands[seat]}
+                alive={state.alive[seat]}
+                isTurn={state.turn === seat}
+                isLeader={state.phase === 2 && state.leader === seat}
+                thinking={busy && state.turn === seat}
+                connection={seatStatus?.[seat]?.connection}
+                style={{ left: seatPositions[i].left, top: seatPositions[i].top }}
+              />
+            ))}
+            <TableCenter state={state} mySeat={mySeat} names={names} />
           </div>
-          <HandRow state={state} hand={myHand} legal={myLegal} onPlay={onPlay} isMyTurn={isMyTurn} />
+
+          <div className="w-full flex flex-col items-center gap-2 bg-white/5 rounded-2xl p-4 border border-white/10">
+            <div className="text-xs text-zinc-300 font-semibold flex items-center gap-2">
+              YOUR HAND
+              {state.phase === 2 && state.leader === mySeat && <span title="You lead this trick">🎯 you lead</span>}
+            </div>
+            <HandRow state={state} hand={myHand} legal={myLegal} onPlay={onPlay} isMyTurn={isMyTurn} />
+          </div>
         </div>
-      </div>
+      </ScaleToFit>
 
       {state.finished && (
         <EndScreen
